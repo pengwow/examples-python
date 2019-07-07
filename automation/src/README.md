@@ -1,7 +1,9 @@
 # python依赖包安装
 有两个urllib3,selenium需要安装，离线文件已放到根目录
-cd src
-pip install ./*.whl
+
+`cd src`
+
+`pip install ./*.whl`
 
 # 执行
 ```bash
