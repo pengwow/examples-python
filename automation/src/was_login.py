@@ -20,7 +20,7 @@ def main():
     options = Options()
     options.headless = True
     driver = webdriver.Firefox(
-        executable_path='geckodriver',
+        executable_path='./geckodriver',
         firefox_options=options)
     driver.get(args.url)
     driver.find_element_by_id("j_username").send_keys(args.id)
@@ -35,7 +35,7 @@ def main():
     _header = driver.find_element_by_xpath('//div[@id="ibm-banner-content"]').text
     driver.close()
     if "Welcome" in _header:
-        print("登陆成功 %s" % _header)
+        print(u"登陆成功 %s" % _header)
     else:
         print(driver.page_source)
         os.system(1)
