@@ -54,7 +54,9 @@ class OSHardwareInfo(object):
     系统层获取硬件信息
     """
 
-    def __init__(self):
+    def __init__(self, ip, user):
+        self.ip = ip
+        self.user = user
         self.lshw_data = None
         self.dmi_data = None
         self.lscpu_data = None
@@ -105,7 +107,7 @@ class OSHardwareInfo(object):
         :param content: 传递进来dmidecode命令执行的原始输出结果
         :return: 重新组装后的数据字典
         """
-        _info = dict()
+        info = {}
         try:
             """
             这里是一个关键点，dmidecode命令输出其实是层级结构的，它使用制表符\t来表示层级，lines可以列表，但后续处理会比较麻烦
@@ -119,17 +121,16 @@ class OSHardwareInfo(object):
                     if line.startswith(b'Handle 0x'):
                         typ = int(str(line).split(',', 2)[1].strip()[len('DMI type'):])
                         if typ in self._DMI_TYPE:
-                            if typ not in _info:
-                                _info[self._DMI_TYPE[typ]] = []
-                                _info[self._DMI_TYPE[typ]].append(self._parse_handle_section(lines))
+                            if typ not in info:
+                                info[self._DMI_TYPE[typ]] = []
+                                info[self._DMI_TYPE[typ]].append(self._parse_handle_section(lines))
                             else:
-                                _info[self._DMI_TYPE[typ]].append(self._parse_handle_section(lines))
+                                info[self._DMI_TYPE[typ]].append(self._parse_handle_section(lines))
                 except StopIteration:
                     break
-
+            return info
         except Exception as err:
             logging.error("Error occured in Function parse_dmi err: %s" % str(err))
-        return _info
 
     @staticmethod
     def _parse_handle_section(lines):
@@ -139,7 +140,6 @@ class OSHardwareInfo(object):
         :return: 字典，每个type下面的子信息组成的字典
         """
         data = {}
-        k = ''
         title = str(next(lines).strip().decode(encoding='utf-8'))
         try:
             for line in lines:
@@ -216,7 +216,7 @@ class OSHardwareInfo(object):
         :return:
         """
         result = None
-        cmd = "dmidecode"
+        cmd = "sshpass -p password ssh {user}@{ip} dmidecode".format(user=self.user, ip=self.ip)
         try:
             completed_process = subprocess.run(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             if completed_process.returncode == 0:
@@ -234,7 +234,8 @@ class OSHardwareInfo(object):
         :return:
         """
         result = None
-        cmd = 'dmidecode -t memory | grep Size: | grep -v "No Module Installed"'
+        cmd = 'sshpass -p password ssh {user}@{ip} dmidecode -t memory | grep Size: | grep -v "No Module Installed"'.format(
+            user=self.user, ip=self.ip)
         try:
             completed_process = subprocess.run(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             if completed_process.returncode == 0:
@@ -252,7 +253,7 @@ class OSHardwareInfo(object):
         :return:
         """
 
-        cmd = "lshw -json"
+        cmd = "sshpass -p password ssh {user}@{ip} lshw -json".format(user=self.user, ip=self.ip)
         try:
             completed_process = subprocess.run(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             if completed_process.returncode == 0:
@@ -264,15 +265,14 @@ class OSHardwareInfo(object):
             logging.error(err)
         return self.lshw_data
 
-    @staticmethod
-    def get_lshw_network():
+    def get_lshw_network(self):
         """
-        获取lshw命令中的网卡信息
+
         :return:
         """
         re_list = list()
         file_name = str(random.random())
-        cmd = "lshw |grep -A6 network"
+        cmd = "sshpass -p password ssh {user}@{ip} lshw |grep -A6 network".format(user=self.user, ip=self.ip)
         try:
             completed_process = subprocess.run(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             if completed_process.returncode == 0:
@@ -295,9 +295,8 @@ class OSHardwareInfo(object):
                 os.remove(file_name)
         return Counter(re_list)
 
-    @staticmethod
-    def get_lscpu():
-        cmd = "lscpu"
+    def get_lscpu(self):
+        cmd = "sshpass -p password ssh {user}@{ip} lscpu".format(user=self.user, ip=self.ip)
         # cmd = "sshpass -p password ssh {user}@{ip} lscpu ".format(user='root', ip='172.16.1.102')
         result = dict()
         try:
@@ -340,17 +339,12 @@ class OSHardwareInfo(object):
             return processor[0].get('Version')
         return ''
 
-    @staticmethod
-    def get_disk():
-        """
-        获取磁盘量
-        :return:
-        """
+    def get_disk(self):
         re_list = list()
         file_name = 'disk-' + str(random.random())
         size_list = list()
         description = list()
-        cmd = "lshw |grep -A11 disk"
+        cmd = "sshpass -p password ssh {user}@{ip} lshw |grep -A11 disk".format(user=self.user, ip=self.ip)
         try:
             completed_process = subprocess.run(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             if completed_process.returncode == 0:
@@ -379,7 +373,7 @@ class OSHardwareInfo(object):
     @property
     def total_disk(self):
         """
-        磁盘总量
+
         :return:
         """
         result = ""
@@ -397,7 +391,7 @@ class OSHardwareInfo(object):
     @property
     def serial_number(self):
         """
-        序列号
+
         :return:
         """
         result = ''
@@ -412,7 +406,7 @@ class OSHardwareInfo(object):
     @property
     def mfg(self):
         """
-        厂商
+
         :return:
         """
         return self.lshw_data.get('vendor')
@@ -420,7 +414,7 @@ class OSHardwareInfo(object):
     @property
     def product(self):
         """
-        型号
+
         :return:
         """
         return self.lshw_data.get('product')
@@ -428,17 +422,13 @@ class OSHardwareInfo(object):
     @property
     def memory(self):
         """
-        内存条信息
+
         :return:
         """
         return self.dmi_memory
 
     @property
     def network_card(self):
-        """
-        网卡信息
-        :return:
-        """
         result = ""
         for item in self.lshw_network.keys():
             result += "{key} * {count},".format(key=item, count=self.lshw_network[item])
@@ -448,7 +438,7 @@ class OSHardwareInfo(object):
 
 
 def get_os_hardware_info():
-    os_hardware_obj = OSHardwareInfo()
+    os_hardware_obj = OSHardwareInfo('172.16.1.102', 'root')
     os_hardware_obj.init()
 
     result = dict(
