@@ -1,5 +1,6 @@
-# import sys
+# coding=utf-8
 import logging
+import socket
 import json
 import os
 import time
@@ -197,8 +198,7 @@ class OSHardwareInfo(object):
     def parse_dmi_memory(content):
         total = list()
         result = ''
-        memory_item = str(content).split('\\n')
-        for item in memory_item:
+        for item in content:
             memory_size_list = item.split(':')
             if len(memory_size_list) >= 2:
                 _size = memory_size_list[1].strip()
@@ -218,12 +218,9 @@ class OSHardwareInfo(object):
         result = None
         cmd = "dmidecode"
         try:
-            completed_process = subprocess.run(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-            if completed_process.returncode == 0:
-                data = completed_process.stdout
-                result = self.parse_dmi(data)
-            else:
-                logging.error("Returncode is not 0")
+            completed_process = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            data = completed_process.stdout
+            result = self.parse_dmi(data.read())
         except Exception as err:
             logging.error(err)
         return result
@@ -234,16 +231,21 @@ class OSHardwareInfo(object):
         :return:
         """
         result = None
+        file_name = str(random.random())
         cmd = 'dmidecode -t memory | grep Size: | grep -v "No Module Installed"'
         try:
-            completed_process = subprocess.run(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-            if completed_process.returncode == 0:
-                data = completed_process.stdout
-                result = self.parse_dmi_memory(data)
-            else:
-                logging.error("Returncode is not 0")
+            completed_process = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            data = completed_process.stdout
+            with open(file_name, 'wb') as _file:
+                _file.write(data.read())
+            with open(file_name, 'r') as _file:
+                result = _file.readlines()
+            result = self.parse_dmi_memory(result)
         except Exception as err:
             logging.error(err)
+        finally:
+            if os.path.exists(file_name):
+                os.remove(file_name)
         return result
 
     def get_lshw(self):
@@ -254,12 +256,9 @@ class OSHardwareInfo(object):
 
         cmd = "lshw -json"
         try:
-            completed_process = subprocess.run(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-            if completed_process.returncode == 0:
-                data = completed_process.stdout
-                self.lshw_data = self.parse_lshw(data)
-            else:
-                logging.error("Returncode is not 0")
+            completed_process = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            data = completed_process.stdout
+            self.lshw_data = self.parse_lshw(data.read())
         except Exception as err:
             logging.error(err)
         return self.lshw_data
@@ -274,20 +273,16 @@ class OSHardwareInfo(object):
         file_name = str(random.random())
         cmd = "lshw |grep -A6 network"
         try:
-            completed_process = subprocess.run(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-            if completed_process.returncode == 0:
-                data = completed_process.stdout
-
-                with open(file_name, 'wb') as _file:
-                    _file.write(data)
-                with open(file_name, 'r') as _file:
-                    result = _file.readlines()
-                for item in result:
-                    line = item.split(':')
-                    if len(line) >= 2 and 'product' in line[0]:
-                        re_list.append(line[1].strip())
-            else:
-                logging.error("Returncode is not 0")
+            completed_process = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            data = completed_process.stdout
+            with open(file_name, 'wb') as _file:
+                _file.write(data.read())
+            with open(file_name, 'r') as _file:
+                result = _file.readlines()
+            for item in result:
+                line = item.split(':')
+                if len(line) >= 2 and 'product' in line[0]:
+                    re_list.append(line[1].strip())
         except Exception as err:
             logging.error(err)
         finally:
@@ -301,23 +296,20 @@ class OSHardwareInfo(object):
         # cmd = "sshpass -p password ssh {user}@{ip} lscpu ".format(user='root', ip='172.16.1.102')
         result = dict()
         try:
-            completed_process = subprocess.run(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-            if completed_process.returncode == 0:
-                data = completed_process.stdout
-                filename = './cpu.txt'
-                with open(filename, 'wb') as _file:
-                    _file.write(data)
-                with open(filename, 'r') as _file:
-                    new_data = _file.readlines()
-                for item in new_data:
-                    cpu_line = item.split(':')
-                    if len(cpu_line) >= 2:
-                        result[cpu_line[0].strip()] = cpu_line[1].strip()
-                if os.path.exists(filename):
-                    os.remove(filename)
-                return result
-            else:
-                logging.error("Returncode is not 0")
+            completed_process = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            data = completed_process.stdout
+            filename = './cpu.txt'
+            with open(filename, 'wb') as _file:
+                _file.write(data.read())
+            with open(filename, 'r') as _file:
+                new_data = _file.readlines()
+            for item in new_data:
+                cpu_line = item.split(':')
+                if len(cpu_line) >= 2:
+                    result[cpu_line[0].strip()] = cpu_line[1].strip()
+            if os.path.exists(filename):
+                os.remove(filename)
+            return result
         except Exception as err:
             logging.error(err)
 
@@ -327,7 +319,9 @@ class OSHardwareInfo(object):
         获取cpu个数
         :return:
         """
-        return self.lscpu_data.get('CPU(s)')
+        if self.lscpu_data:
+            return self.lscpu_data.get('CPU(s)')
+        return ''
 
     @property
     def cpu_model_name(self):
@@ -335,9 +329,10 @@ class OSHardwareInfo(object):
         获取cpu型号名称
         :return:
         """
-        processor = self.dmi_data.get('Processor Information')
-        if processor:
-            return processor[0].get('Version')
+        if self.dmi_data:
+            processor = self.dmi_data.get('Processor Information')
+            if processor:
+                return processor[0].get('Version')
         return ''
 
     @staticmethod
@@ -352,23 +347,19 @@ class OSHardwareInfo(object):
         description = list()
         cmd = "lshw |grep -A11 disk"
         try:
-            completed_process = subprocess.run(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-            if completed_process.returncode == 0:
-                data = completed_process.stdout
-
-                with open(file_name, 'wb') as _file:
-                    _file.write(data)
-                with open(file_name, 'r') as _file:
-                    result = _file.readlines()
-                for item in result:
-                    line = item.split(':')
-                    if len(line) >= 2 and 'size' in line[0]:
-                        size_list.append(line[1].strip())
-                    if len(line) >= 2 and 'description' in line[0]:
-                        description.append(line[1].strip())
-                re_list = list(zip(description, size_list))
-            else:
-                logging.error("Returncode is not 0")
+            completed_process = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            data = completed_process.stdout
+            with open(file_name, 'wb') as _file:
+                _file.write(data.read())
+            with open(file_name, 'r') as _file:
+                result = _file.readlines()
+            for item in result:
+                line = item.split(':')
+                if len(line) >= 2 and 'size' in line[0]:
+                    size_list.append(line[1].strip())
+                if len(line) >= 2 and 'description' in line[0]:
+                    description.append(line[1].strip())
+            re_list = list(zip(description, size_list))
         except Exception as err:
             logging.error(err)
         finally:
@@ -415,7 +406,9 @@ class OSHardwareInfo(object):
         厂商
         :return:
         """
-        return self.lshw_data.get('vendor')
+        if self.lshw_data:
+            return self.lshw_data.get('vendor')
+        return ''
 
     @property
     def product(self):
@@ -423,7 +416,9 @@ class OSHardwareInfo(object):
         型号
         :return:
         """
-        return self.lshw_data.get('product')
+        if self.lshw_data:
+            return self.lshw_data.get('product')
+        return ''
 
     @property
     def memory(self):
@@ -450,7 +445,10 @@ class OSHardwareInfo(object):
 def get_os_hardware_info():
     os_hardware_obj = OSHardwareInfo()
     os_hardware_obj.init()
-
+    # 获取本机电脑名
+    hostname = socket.getfqdn(socket.gethostname())
+    # 获取本机ip
+    addr = socket.gethostbyname(hostname)
     result = dict(
         dmi=os_hardware_obj.dmi_data,
         lshw=os_hardware_obj.lshw_data,
@@ -463,6 +461,10 @@ def get_os_hardware_info():
             memory=os_hardware_obj.memory,
             network_card=os_hardware_obj.network_card,
             total_disk=os_hardware_obj.total_disk
+        ),
+        host=dict(
+            hostname=hostname,
+            addr=addr
         )
     )
     return result
