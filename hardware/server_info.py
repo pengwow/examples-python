@@ -62,6 +62,7 @@ class OSHardwareInfo(object):
         self.dmi_memory = None
         self.lshw_network = None
         self.lshw_disk = None
+        self.lshw_html = None
         # 注释掉里面的键值意味着忽略某些类型
         self._DMI_TYPE = {
             0: "BIOS Information",  # BIOS信息 提供商、版本等
@@ -99,6 +100,7 @@ class OSHardwareInfo(object):
         self.dmi_memory = self.get_dmi_memory()
         self.lshw_network = self.get_lshw_network()
         self.lshw_disk = self.get_disk()
+        self.lshw_html = self.get_lshw_html()
 
     def parse_dmi(self, content):
         """
@@ -120,7 +122,7 @@ class OSHardwareInfo(object):
                     if line.startswith(b'Handle 0x'):
                         typ = int(str(line).split(',', 2)[1].strip()[len('DMI type'):])
                         if typ in self._DMI_TYPE:
-                            if typ not in _info:
+                            if self._DMI_TYPE.get(typ) not in _info:
                                 _info[self._DMI_TYPE[typ]] = []
                                 _info[self._DMI_TYPE[typ]].append(self._parse_handle_section(lines))
                             else:
@@ -262,6 +264,30 @@ class OSHardwareInfo(object):
         except Exception as err:
             logging.error(err)
         return self.lshw_data
+
+    @staticmethod
+    def get_lshw_html():
+        """
+        调用系统lshw命令获取硬件信息
+        :return:
+        """
+        filename = str(random.random())
+        result = ''
+        cmd = "lshw -html"
+        try:
+            completed_process = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            data = completed_process.stdout
+            with open(filename, 'wb') as _file:
+                _file.write(data.read())
+            with open(filename, 'r') as _file:
+                result = _file.read()
+
+        except Exception as err:
+            logging.error(err)
+        finally:
+            if os.path.exists(filename):
+                os.remove(filename)
+        return result
 
     @staticmethod
     def get_lshw_network():
@@ -452,6 +478,7 @@ def get_os_hardware_info():
     result = dict(
         dmi=os_hardware_obj.dmi_data,
         lshw=os_hardware_obj.lshw_data,
+        lshw_html=os_hardware_obj.lshw_html,
         cmdb=dict(
             serial_number=os_hardware_obj.serial_number,
             cpu_model_name=os_hardware_obj.cpu_model_name,
