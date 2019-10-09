@@ -279,9 +279,9 @@ class OSHardwareInfo(object):
             completed_process = subprocess.run(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             if completed_process.returncode == 0:
                 data = completed_process.stdout
-                with open(filename,'wb') as _file:
+                with open(filename, 'wb') as _file:
                     _file.write(data)
-                with open(filename,'r') as _file:
+                with open(filename, 'r') as _file:
                     result = _file.read()
             else:
                 logging.error("Returncode is not 0")
@@ -488,3 +488,10 @@ def get_os_hardware_info():
 
 info = get_os_hardware_info()
 print(info)
+import requests
+
+result = requests.post('http://127.0.0.1:8000/info/server/hardware_info_receive/', data={'data': json.dumps(info)})
+if result.status_code == 200:
+    print('1111')
+data = result.json()
+print(data)
