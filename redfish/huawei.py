@@ -2,6 +2,19 @@
 import requests
 
 
+def dict_get(src, objkey, default):
+    tmp = src
+    for k, v in tmp.items():
+        if k == objkey:
+            return v
+        else:
+            if isinstance(v, dict):
+                result = dict_get(v, objkey, default)
+                if result is not default:
+                    return result
+    return default
+
+
 class HWRedfish(object):
     def __init__(self, device_ip):
         # 忽略https协议接口的警告信息
@@ -50,15 +63,56 @@ class HWRedfish(object):
                         本地升级：“/tmp/cpldimage.hpm”
         :param protocol:下载升级包时使用的协议HTTPS/SCP/SFTP/CIFS/TFTP/NFS
                         如果是本地升级则不需要该 字段。
-        :return:
+        :return: 任务的ID
         """
         url = 'https://{device_ip}/redfish/v1/UpdateService/Actions/UpdateService.SimpleUpdate'.format(
             device_ip=self.device_ip)
         data = dict(ImageURI=filepath, TransferProtocol=protocol)
         result = requests.post(url, json=data, headers=self.headers, verify=False)
+        if result.status_code in [200, 201, 202]:
+            result = result.json()
+            return result.get('Id')
+        else:
+            raise Exception(result.content)
+
+    # 3.8.3 查询指定任务资源信息
+    def task_info(self, taskid):
+        """
+        查询服务器指定任务资源的信息
+        :param taskid: 待查询任务的ID
+        :return:
+        """
+        url = 'https://{device_ip}/redfish/v1/TaskService/Tasks/{taskid}'.format(device_ip=self.device_ip,
+                                                                                 taskid=taskid)
+        result = requests.get(url, headers=self.headers, verify=False)
+        if result.status_code in [200, 201, 202]:
+            result = result.json()
+            # 发生异常
+            if 'Exception' == result.get('TaskState'):
+                raise Exception(result.get('Message'))
+            # 完成
+            elif 'Completed' == result.get('TaskState'):
+                return 'Completed'
+            # 运行中则返回进度
+            elif 'Running' == result.get('TaskState'):
+                return dict_get(result, 'TaskPercentage', False)
+            else:
+                raise Exception(str(result))
+        else:
+            raise Exception(result.content)
 
 
-client = HWRedfish('172.16.11.14')
-client.create_session('hy', '123')
-dd = client.query_firmware_info('Bios')
-print(dd)
+if __name__ == '__main__':
+    # 接收包，缓存本地的nfs目录
+    nfs_filepath = ''
+    # 创建redfish对象
+    client = HWRedfish('172.16.11.14')
+    client.create_session('hy', '123')
+    taskid = client.update_firmware(nfs_filepath, 'NFS')
+
+    while True:
+        result = client.task_info(taskid)
+        if 'Completed' == result:
+            break
+        else:
+            print(result)
