@@ -33,7 +33,7 @@ class HWRedfish(object):
         url = 'https://{device_ip}/redfish/v1/SessionService/Sessions'.format(device_ip=self.device_ip)
         data = dict(UserName=user, Password=pasd)
         result = requests.post(url, json=data, headers=self.headers, verify=False)
-        if result.status_code in [200, 201, 202]:
+        if 200 <= result.status_code <= 299:
             self.headers['X-Auth-Token'] = result.headers.get('X-Auth-Token')
         else:
             raise Exception(result.content)
@@ -48,7 +48,7 @@ class HWRedfish(object):
         url = 'https://{device_ip}/redfish/v1/UpdateService/FirmwareInventory/{softid}'.format(device_ip=self.device_ip,
                                                                                                softid=softid)
         result = requests.get(url, headers=self.headers, verify=False)
-        if result.status_code in [200, 201, 202]:
+        if 200 <= result.status_code <= 299:
             return result.json()
         else:
             raise Exception(result.content)
@@ -69,7 +69,7 @@ class HWRedfish(object):
             device_ip=self.device_ip)
         data = dict(ImageURI=filepath, TransferProtocol=protocol)
         result = requests.post(url, json=data, headers=self.headers, verify=False)
-        if result.status_code in [200, 201, 202]:
+        if 200 <= result.status_code <= 299:
             result = result.json()
             return result.get('Id')
         else:
@@ -85,7 +85,7 @@ class HWRedfish(object):
         url = 'https://{device_ip}/redfish/v1/TaskService/Tasks/{taskid}'.format(device_ip=self.device_ip,
                                                                                  taskid=taskid)
         result = requests.get(url, headers=self.headers, verify=False)
-        if result.status_code in [200, 201, 202]:
+        if 200 <= result.status_code <= 299:
             result = result.json()
             # 发生异常
             if 'Exception' == result.get('TaskState'):
