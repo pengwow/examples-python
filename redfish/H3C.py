@@ -27,13 +27,26 @@ def dict_get(src, objkey, default):
     return default
 
 
-class HWRedfish(object):
+class H3CRedfish(object):
     def __init__(self, device_ip):
         # 忽略https协议接口的警告信息
         requests.packages.urllib3.disable_warnings()
         self.device_ip = device_ip
         self.headers = {'Content-Type': 'application/json'}
         self.sessionId = None
+
+    # 4.1.1  查询 Redfish 版本信息
+    def get_redfish_version(self):
+        """
+        获取版本，用来验证是否可用redfish
+        :return:
+        """
+        url = 'https://{device_ip}/redfish'.format(device_ip=self.device_ip)
+        result = requests.get(url)
+        if 200 <= result.status_code <= 299:
+            return result.json()
+        else:
+            return False
 
     # 4.2.1 创建会话
     def create_session(self, user, pasd):
@@ -216,7 +229,7 @@ if __name__ == '__main__':
     # 接收包，缓存本地的nfs目录
     nfs_filepath = ''
     # 创建redfish对象
-    client = HWRedfish('172.16.11.14')
+    client = H3CRedfish('172.16.11.14')
     session = client.create_session('hy', '123')
     client.computer_system_reset()
     # filepath = "E:\\Temp\\biosimage.hpm"
