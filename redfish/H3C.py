@@ -48,7 +48,7 @@ class H3CRedfish(object):
         else:
             return False
 
-    # 4.2.1 创建会话
+    # 4.6.1  创建会话
     def create_session(self, user, pasd):
         """
         创建会话，返回X-Auth-Token
@@ -62,8 +62,7 @@ class H3CRedfish(object):
         if 200 <= result.status_code <= 299:
             self.headers['X-Auth-Token'] = result.headers.get('X-Auth-Token')
             self.sessionId = result.json().get('Id')
-            print(self.headers)
-            print(self.sessionId)
+            return self.sessionId
         else:
             raise Exception(result.content)
 
@@ -153,24 +152,11 @@ class H3CRedfish(object):
             },
         )
         headers['Content-Type'] = multipart_encoder.content_type
-        # files = {
-        #     "imgfile": (filename, open(filepath, 'rb').read(),'application/octet-stream'),
-        #     "submit": (None, 'uploadfile')
-        # }
-        # 设置代理 给fidder抓包工具抓取使用
-        # proxies = {'http': 'http://172.16.11.122:8888', 'https': 'http://172.16.11.122:8888'}
-        # result = requests.post(url, data=multipart_encoder, proxies=proxies, headers=headers, verify=False)
         result = requests.post(url, data=multipart_encoder, headers=headers, verify=False)
-        # result = requests.request('POST',url,files=files,headers=headers,verify=False)
-        # result = requests.post(url, files=files, headers=headers, verify=False)
         if result.status_code != 202:
             # 发生异常
-            print('XXXXXXXXXXXXXXXXXXXXX')
-            print(result.content)
             self.delete_session()
-            # raise Exception(str(result.content))
         else:
-            print('OK!!!!!!!!!!!')
             return os.path.join('/tmp/web/', filename)
 
     # 3.5.6 删除指定会话

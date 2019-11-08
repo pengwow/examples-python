@@ -35,7 +35,14 @@ class HWRedfish(object):
         self.headers = {'Content-Type': 'application/json'}
         self.sessionId = None
 
-    # 4.2.1 创建会话
+    # 3.5.2 修改会话服务信息
+    def modify_session(self,):
+        """
+
+        :return:
+        """
+
+    # 3.5.3 创建会话
     def create_session(self, user, pasd):
         """
         创建会话，返回X-Auth-Token
