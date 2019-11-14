@@ -210,7 +210,7 @@ def main():
 
         recvData, clientInfo = s.recvfrom(1024)  # 第一次客户连接69端口
 
-        # print(clientInfo)
+        print(clientInfo,recvData[-7:],struct.unpack('!b5sb', recvData[-7:]))
 
         # 　解包
 
@@ -247,3 +247,6 @@ def main():
 
 if __name__ == '__main__':
     main()
+
+
+
